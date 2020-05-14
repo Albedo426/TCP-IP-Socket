@@ -1,0 +1,54 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Net;
+using System.Net.Sockets;
+
+
+namespace tcpclient
+{
+    public partial class Form1 : Form
+    {
+        static Socket soket = new Socket
+              (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        //sohey oluþuruyorum  protokolüm tcp 
+        //ýP Adresi için InterNetwork baglantýsý üzerinde çalýþacaðýmýzý söylüyoruz
+        int PORT = 9999;
+        public Form1()
+        {
+            InitializeComponent();
+            CheckForIllegalCrossThreadCalls = false;
+            try
+            {
+                soket.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), PORT));//127.0.0.1 ip adresinden bizim belirlediðimiz porta  baðlanýyoruz
+                MessageBox.Show("baðlantý tamamlandý");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("baðlantý sýrasýnda bi hata oluþtur tekrar deneyin hata ex=>"+ex);
+            }
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            //soketim baðlýysa iþlem yapýcam öncelikle kontrol ediyorum
+            if (soket.Connected)
+            {
+                string gonder = massegebox.Text;
+                // Að üzerinden gönderilecek her þey bytelara dönüþtürülmüþ olmalýdýr.
+                soket.Send(Encoding.UTF8.GetBytes(gonder));
+                MessageBox.Show("mesaj  gönderildi");
+            }
+            else {
+                MessageBox.Show("baðlantý hatasý");
+            }
+
+        }
+    }
+}

@@ -1,0 +1,10 @@
+C:\Users\Fatih Yılmaz\source\repos\tcpclient\tcpclient\bin\Debug\tcpclient.exe.config
+C:\Users\Fatih Yılmaz\source\repos\tcpclient\tcpclient\bin\Debug\tcpclient.exe
+C:\Users\Fatih Yılmaz\source\repos\tcpclient\tcpclient\bin\Debug\tcpclient.pdb
+C:\Users\Fatih Yılmaz\source\repos\tcpclient\tcpclient\obj\Debug\tcpclient.csprojAssemblyReference.cache
+C:\Users\Fatih Yılmaz\source\repos\tcpclient\tcpclient\obj\Debug\tcpclient.Form1.resources
+C:\Users\Fatih Yılmaz\source\repos\tcpclient\tcpclient\obj\Debug\tcpclient.Properties.Resources.resources
+C:\Users\Fatih Yılmaz\source\repos\tcpclient\tcpclient\obj\Debug\tcpclient.csproj.GenerateResource.cache
+C:\Users\Fatih Yılmaz\source\repos\tcpclient\tcpclient\obj\Debug\tcpclient.csproj.CoreCompileInputs.cache
+C:\Users\Fatih Yılmaz\source\repos\tcpclient\tcpclient\obj\Debug\tcpclient.exe
+C:\Users\Fatih Yılmaz\source\repos\tcpclient\tcpclient\obj\Debug\tcpclient.pdb

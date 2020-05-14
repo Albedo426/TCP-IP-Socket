@@ -1,0 +1,509 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
+using System.IO;
+
+namespace tcpclient
+{
+    public partial class Form1 : Form
+    {
+        private bool Kapatsorgu;
+        DialogResult dr = DialogResult.No;
+        Thread connents;
+        static Socket dinleyiciSoket = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        //sohey oluþuruyorum  protokolüm tcp 
+        //ýP Adresi için InterNetwork baglantýsý üzerinde çalýþacaðýmýzý söylüyoruz
+        TcpClient client;//client için baðlantý
+         int whereToSend = 0; //0  server //1 client //nerden baglandýðým için
+        public Form1()
+        {
+            InitializeComponent();
+            CheckForIllegalCrossThreadCalls = false;
+        }
+       
+        private void button1_Click(object sender, EventArgs e)
+        {
+            //soketim baðlýysa iþlem yapýcam öncelikle kontrol ediyorum
+            if (whereToSend == 1)
+            {
+                NetworkStream networkStream = client.GetStream();
+                BinaryWriter writer = new BinaryWriter(networkStream);
+                writer.Write(crativepacket(1));
+            }
+            else {
+               dinleyiciSoket.Send(crativepacket(1));
+            }
+            //Console.WriteLine(reader.ReadString());
+        }
+        private void clientconnent(object sender, EventArgs e)
+        {
+            Thread th = new Thread(new ThreadStart(connentnetwork_client));
+            th.Start();
+        }
+        public void connentnetwork_client()
+        {
+            try
+            {
+                whereToSend = 1;//client þekilde baðlantý kurdum
+                serverconnent.Enabled = false;
+                // soket.Connect(new IPEndPoint(IPAddress.Parse(clientip.Text), Convert.ToInt16(clientport.Text)));//127.0.0.1 ip adresinden bizim belirlediðimiz porta  baðlanýyoruz
+                //herhangi bir ip adresinden belli bir portu dinlesin diye yapýyoruz
+                client = new TcpClient();
+                //client.Connect(IPAddress.Parse(clientip.Text), Convert.ToInt16(clientport.Text));
+                //NetworkStream networkStream = client.GetStream();
+                //BinaryReader read = new BinaryReader(networkStream);
+                //while (true) {
+                //    if (networkStream.DataAvailable) {
+                //        byte[] a = read.ReadBytes(3);
+                //        drawmessage(read.ReadBytes(a[2]));
+                //    }
+                //}
+                IPEndPoint remoteEP = new IPEndPoint(IPAddress.Parse(clientip.Text), Convert.ToInt16(clientport.Text));//baglantý noktasý
+                client.Connect(remoteEP);
+                NetworkStream stream = client.GetStream();
+                MessageBox.Show("baðlantý tamamlandý client");
+                while (true)
+                {
+                    byte[] buffer = new byte[1024];
+                    int bytesRec = stream.Read(buffer, 0, 1024);
+                    if (bytesRec != 0)//veri varsa 0dan farklýysa
+                    {
+                        drawmessage(buffer);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("baðlantý sýrasýnda bi hata oluþtur tekrar deneyin hata ex=>" + ex);
+            }
+        }
+        public void connentnetwork()
+        {
+            clientconnetn.Enabled = false;
+            whereToSend = 0;
+            //thareda baðlý þekilde düzenlenicek tamamý nedeni from gelmeden önce baðlantý  baðlanmalý be mesaj gönderilmeli öbür türlü form gelmiyor 
+            // Ayrýca gönderici ile ayný PORT üzerinden dinlemesi gerekiyor  baþka türlü çalýþmýyor
+            TcpListener dinle = new TcpListener(IPAddress.Parse(serverip.Text), Convert.ToInt16(serverport.Text));
+            //herhangi bir ip adresinden belli bir portu dinlesin diye yapýyoruz
+            dinle.Start();
+            // Buradan aþaðýsý baðlantý teklifi geldiðinde çalýþacaktýr. 
+            dinleyiciSoket = dinle.AcceptSocket();
+            if (dinleyiciSoket.Connected)
+            {
+                MessageBox.Show("servere birisi baðlandý");
+            }
+          
+            while (true)
+            {
+                try
+                {
+                    // Receive() metodu TCP baðlantýsý üzerinden gelecek mesajlarý beklemeye ve
+                    // geldiðinde okumaya yarar.  gelenleri de gelen dataya atýyoruz
+                    //mesaj gelmesse devamý çalýþmýyor 
+                    //o yüzden thread kullandým
+                    byte[] gelenData = new byte[256];
+                    dinleyiciSoket.Receive(gelenData);
+                    drawmessage(gelenData);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("hata oldu" + ex);
+                    break;
+                }
+            }
+        }
+        public void drawmessage(byte[] gelenData)
+        {
+            byte[] bytes1 = gelenData;
+            byte[] bytes = new byte[bytes1[2]];
+            for (int i = 0; i < bytes1[2] - 1; i++)//toplamý buluyoruz
+            {
+                bytes[i] = bytes1[i];
+            }
+            int top = 0;
+            for (int i = 0; i < bytes[2] - 1; i++)//toplamý buluyoruz
+            {
+                top += bytes[i];
+            }
+            int crc = (top - bytes[2]) % 127;//crcyi biliyoruz
+            if (crc != 0)//kontrol ediyoruz
+            {
+                byte[] buffer = new byte[bytes[2] - 4];//bufer boyutunu oluþturuyoruz burda -4  benim en sonrdan 4. deðerim yani boyutum
+                String s = "";//doldurulucak stringim
+                if (bytes[0] == 1)//comut 1 se yani mesaj  yollanýysa
+                {
+                    for (int i = 3; i < bytes[2] - 1; i++)//3ün gerisi comut  verileri sonundcu veri de  crc olduðu için onlarý stringe almadan yapýyorum
+                    {
+                        s += (char)bytes[i];
+                    }
+                }
+                else {
+                    String filenames="";
+                    String fileText = "";
+                    for (int i = 0; i < bytes[1]; i++)//3ün gerisi comut  verileri sonundcu veri de  crc olduðu için onlarý stringe almadan yapýyorum
+                    {
+                        fileText += (char)bytes[i+3];
+                    }
+                    for (int i = bytes[1] + 3; i < bytes[2]-1; i++)//3ün gerisi comut  verileri sonundcu veri de  crc olduðu için onlarý stringe almadan yapýyorum
+                    {
+                        filenames += (char)bytes[i];
+                    }
+                    FileStream fs = new FileStream("C:\\Users\\Fatih Yýlmaz\\source\\repos\\" + filenames, FileMode.OpenOrCreate, FileAccess.Write);
+                    fs.Close();
+                    File.AppendAllText("C:\\Users\\Fatih Yýlmaz\\source\\repos\\" + filenames,fileText);
+                }
+                getmessage.Text += s + "\n";
+            }
+            else
+            {
+                MessageBox.Show("hata oluþtu");
+                for (int i =0;i<1;i++) {
+                    getmessage.Text += (char)bytes[i];
+                }
+            }
+        }
+        private void connentServer(object sender, EventArgs e)
+        {
+            Thread connent = new Thread(new ThreadStart(connentnetwork));// server baðlantýý için thread 
+            connents = connent;
+            Threadoparetion(true);
+        }
+        public void Threadoparetion(bool islem)
+        {// çýkýþ iþlemi  için thared açýk kalmasýn diye func oluþturudum
+            if (islem)
+            {
+                connents.Start();
+            }
+            else {
+                connents.Abort();
+            }
+        }
+        private void Menu_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (!Kapatsorgu) // ! False ise 
+            {
+                dr = MessageBox.Show("Çýkmak istediðinize emin misiniz?", "Onay", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                Kapatsorgu = dr == DialogResult.Yes;
+            }
+            if (dr == DialogResult.Yes)
+            {
+                if (Kapatsorgu) // True ise
+                {
+                    if (whereToSend==0) {
+                        Threadoparetion(false);
+                    }
+                    Application.Exit();
+                }
+                Kapatsorgu = false;
+            }
+            else
+            {
+                e.Cancel = true;
+            }
+        }
+        private byte[] crativepacket(int com)
+        {
+            if (com == 1)
+            {
+                int maxleng = massegebox.Text.Length + clientname.Text.Length + 5;//toplam gönderilicek veri adeti
+                int dataleng = massegebox.Text.Length + clientname.Text.Length + 1;//sadece string olan kýsým yani ad ve text
+                byte[] bytes = new byte[maxleng];
+                //0=>komut
+                //1=>boþ
+                //2=>topuzunluk
+                //3+n=>data 
+                //3+n1=>bölük//ad ile mesajý ayýrmak için
+                //4+n+m=>komut 
+                bytes[0] = Convert.ToByte(com);
+                bytes[1] = 2;
+                bytes[2] = Convert.ToByte(maxleng);
+
+                String strdata = clientname.Text + ":" + massegebox.Text;
+                getmessage.Text += clientname.Text + ":" + massegebox.Text + " \n"; //gönderdiðimiz mesajý kendi  kutumuzda da görmemiz için
+
+                for (int i = 0; i < dataleng; i++)//data=>bayta atýyoruz
+                    bytes[i + 3] = (byte)strdata[i];
+
+                int top = 0;
+                for (int i = 0; i < dataleng + 3; i++)//toplamý buluyoruz
+                {
+                    top += bytes[i];
+                }
+
+                bytes[maxleng - 1] = Convert.ToByte(top % 127);//toplamý byta atýyoruz
+                return bytes;
+            }
+            else
+            {
+                int maxleng = file.Length + fileName.Length + 4;
+                int dataleng = file.Length;
+                byte[] bytes = new byte[maxleng];
+               
+                bytes[0] = Convert.ToByte(com);
+                bytes[1] = Convert.ToByte(file.Length);
+                bytes[2] = Convert.ToByte(maxleng);
+
+
+                for (int i = 0; i < dataleng; i++)//data=>bayta atýyoruz
+                    bytes[i + 3] = (byte)file[i];
+
+
+                int top = 0;
+                for (int i = 0; i < fileName.Length; i++)//toplamý buluyoruz
+                {
+                    bytes[i + dataleng +3] +=(byte)fileName[i];
+                }
+
+                for (int i = 0; i < maxleng-1; i++)//toplamý buluyoruz
+                {
+                    top += bytes[i];
+                }
+                bytes[maxleng - 1] = Convert.ToByte(top % 127);//toplamý byta atýyoruz
+                return bytes;
+            }
+        }
+        byte[] file;
+        String fileName;
+        private void denemfile_Click(object sender, EventArgs e)
+        {
+            byte[] bytes = File.ReadAllBytes(@"C:\Users\Fatih Yýlmaz\source\repos\tcpclient\aa.txt");//byte olarak okudum
+            file = bytes;
+            fileName = "aa.txt";
+            //soketim baðlýysa iþlem yapýcam öncelikle kontrol ediyorum
+            if (whereToSend == 1)
+            {
+                NetworkStream networkStream = client.GetStream();
+                BinaryWriter writer = new BinaryWriter(networkStream);
+                writer.Write(crativepacket(2));
+            }
+            else
+            {
+                dinleyiciSoket.Send(crativepacket(2));
+            }
+            //Console.WriteLine(reader.ReadString());
+
+          
+        }
+    }
+}
+
+
+
+//**********************fronttent*****************************//
+
+namespace tcpclient
+{
+    partial class Form1
+    {
+        /// <summary>
+        ///Gerekli tasarýmcý deðiþkeni.
+        /// </summary>
+        private System.ComponentModel.IContainer components = null;
+
+        /// <summary>
+        ///Kullanýlan tüm kaynaklarý temizleyin.
+        /// </summary>
+        ///<param name="disposing">yönetilen kaynaklar dispose edilmeliyse doðru; aksi halde yanlýþ.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        #region Windows Form Designer üretilen kod
+
+        /// <summary>
+        /// Tasarýmcý desteði için gerekli metot - bu metodun 
+        ///içeriðini kod düzenleyici ile deðiþtirmeyin.
+        /// </summary>
+        private void InitializeComponent()
+        {
+            this.massegebox = new System.Windows.Forms.RichTextBox();
+            this.sendmassage = new System.Windows.Forms.Button();
+            this.label1 = new System.Windows.Forms.Label();
+            this.getmessage = new System.Windows.Forms.RichTextBox();
+            this.serverip = new System.Windows.Forms.TextBox();
+            this.label2 = new System.Windows.Forms.Label();
+            this.serverport = new System.Windows.Forms.TextBox();
+            this.clientip = new System.Windows.Forms.TextBox();
+            this.clientport = new System.Windows.Forms.TextBox();
+            this.clientname = new System.Windows.Forms.TextBox();
+            this.clientconnetn = new System.Windows.Forms.Button();
+            this.serverconnent = new System.Windows.Forms.Button();
+            this.Deneme_file = new System.Windows.Forms.Button();
+            this.SuspendLayout();
+            // 
+            // massegebox
+            // 
+            this.massegebox.Location = new System.Drawing.Point(15, 354);
+            this.massegebox.Name = "massegebox";
+            this.massegebox.Size = new System.Drawing.Size(292, 41);
+            this.massegebox.TabIndex = 0;
+            this.massegebox.Text = "";
+            // 
+            // sendmassage
+            // 
+            this.sendmassage.Location = new System.Drawing.Point(313, 354);
+            this.sendmassage.Name = "sendmassage";
+            this.sendmassage.Size = new System.Drawing.Size(119, 41);
+            this.sendmassage.TabIndex = 1;
+            this.sendmassage.Text = "gonder";
+            this.sendmassage.UseVisualStyleBackColor = true;
+            this.sendmassage.Click += new System.EventHandler(this.button1_Click);
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Location = new System.Drawing.Point(12, 9);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(91, 17);
+            this.label1.TabIndex = 2;
+            this.label1.Text = "server ayrlarý";
+            this.label1.Visible = false;
+            // 
+            // getmessage
+            // 
+            this.getmessage.Location = new System.Drawing.Point(15, 143);
+            this.getmessage.Name = "getmessage";
+            this.getmessage.ReadOnly = true;
+            this.getmessage.Size = new System.Drawing.Size(417, 182);
+            this.getmessage.TabIndex = 3;
+            this.getmessage.Text = "";
+            // 
+            // serverip
+            // 
+            this.serverip.Location = new System.Drawing.Point(15, 29);
+            this.serverip.Name = "serverip";
+            this.serverip.Size = new System.Drawing.Size(100, 22);
+            this.serverip.TabIndex = 4;
+            this.serverip.Text = "127.0.0.1";
+            // 
+            // label2
+            // 
+            this.label2.AutoSize = true;
+            this.label2.Location = new System.Drawing.Point(12, 80);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(92, 17);
+            this.label2.TabIndex = 5;
+            this.label2.Text = "client ayarlari";
+            this.label2.Visible = false;
+            // 
+            // serverport
+            // 
+            this.serverport.Location = new System.Drawing.Point(121, 29);
+            this.serverport.Name = "serverport";
+            this.serverport.Size = new System.Drawing.Size(100, 22);
+            this.serverport.TabIndex = 7;
+            this.serverport.Text = "9999";
+            // 
+            // clientip
+            // 
+            this.clientip.Location = new System.Drawing.Point(121, 100);
+            this.clientip.Name = "clientip";
+            this.clientip.Size = new System.Drawing.Size(100, 22);
+            this.clientip.TabIndex = 8;
+            this.clientip.Text = "127.0.0.1";
+            // 
+            // clientport
+            // 
+            this.clientport.Location = new System.Drawing.Point(227, 100);
+            this.clientport.Name = "clientport";
+            this.clientport.Size = new System.Drawing.Size(100, 22);
+            this.clientport.TabIndex = 9;
+            this.clientport.Tag = "";
+            this.clientport.Text = "9999";
+            // 
+            // clientname
+            // 
+            this.clientname.Location = new System.Drawing.Point(15, 100);
+            this.clientname.Name = "clientname";
+            this.clientname.Size = new System.Drawing.Size(100, 22);
+            this.clientname.TabIndex = 10;
+            this.clientname.Text = "adiniz?";
+            // 
+            // clientconnetn
+            // 
+            this.clientconnetn.Location = new System.Drawing.Point(333, 92);
+            this.clientconnetn.Name = "clientconnetn";
+            this.clientconnetn.Size = new System.Drawing.Size(99, 39);
+            this.clientconnetn.TabIndex = 11;
+            this.clientconnetn.Text = "baglan";
+            this.clientconnetn.UseVisualStyleBackColor = true;
+            this.clientconnetn.Click += new System.EventHandler(this.clientconnent);
+            // 
+            // serverconnent
+            // 
+            this.serverconnent.Location = new System.Drawing.Point(227, 21);
+            this.serverconnent.Name = "serverconnent";
+            this.serverconnent.Size = new System.Drawing.Size(80, 39);
+            this.serverconnent.TabIndex = 12;
+            this.serverconnent.Text = "baðlan";
+            this.serverconnent.UseVisualStyleBackColor = true;
+            this.serverconnent.Click += new System.EventHandler(this.connentServer);
+            // 
+            // Deneme_file
+            // 
+            this.Deneme_file.Location = new System.Drawing.Point(318, 21);
+            this.Deneme_file.Name = "Deneme_file";
+            this.Deneme_file.Size = new System.Drawing.Size(109, 39);
+            this.Deneme_file.TabIndex = 13;
+            this.Deneme_file.Text = "denemefile";
+            this.Deneme_file.UseVisualStyleBackColor = true;
+            this.Deneme_file.Click += new System.EventHandler(this.denemfile_Click);
+            // 
+            // Form1
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.ClientSize = new System.Drawing.Size(439, 420);
+            this.Controls.Add(this.Deneme_file);
+            this.Controls.Add(this.serverconnent);
+            this.Controls.Add(this.clientconnetn);
+            this.Controls.Add(this.clientname);
+            this.Controls.Add(this.clientport);
+            this.Controls.Add(this.clientip);
+            this.Controls.Add(this.serverport);
+            this.Controls.Add(this.label2);
+            this.Controls.Add(this.serverip);
+            this.Controls.Add(this.getmessage);
+            this.Controls.Add(this.label1);
+            this.Controls.Add(this.sendmassage);
+            this.Controls.Add(this.massegebox);
+            this.Name = "Form1";
+            this.Text = "Form1";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Menu_FormClosing);
+            this.ResumeLayout(false);
+            this.PerformLayout();
+
+        }
+
+        #endregion
+
+        private System.Windows.Forms.RichTextBox massegebox;
+        private System.Windows.Forms.Button sendmassage;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.RichTextBox getmessage;
+        private System.Windows.Forms.TextBox serverip;
+        private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.TextBox serverport;
+        private System.Windows.Forms.TextBox clientip;
+        private System.Windows.Forms.TextBox clientport;
+        private System.Windows.Forms.TextBox clientname;
+        private System.Windows.Forms.Button clientconnetn;
+        private System.Windows.Forms.Button serverconnent;
+        private System.Windows.Forms.Button Deneme_file;
+    }
+}
+
